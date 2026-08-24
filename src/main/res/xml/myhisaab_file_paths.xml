@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Captured photos are written to externalCacheDir/Images (see CameraOverlay). -->
+    <external-cache-path name="myhisaab_images" path="Images/" />
+</paths>

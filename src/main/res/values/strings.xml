@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="myhisaab_retry">Retry</string>
+    <string name="myhisaab_camera_close">Close</string>
+    <string name="myhisaab_camera_switch">Switch camera</string>
+    <string name="myhisaab_camera_permission_rationale">Camera access is needed to capture photos.</string>
+    <string name="myhisaab_camera_grant_permission">Grant permission</string>
+    <string name="myhisaab_open_settings">Open settings</string>
+    <string name="myhisaab_cancel">Cancel</string>
+    <string name="myhisaab_camera_capture_failed">Could not capture photo. Please try again.</string>
+</resources>

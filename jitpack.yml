@@ -1,0 +1,7 @@
+jdk:
+  - openjdk17
+before_install:
+  - yes | sdkmanager --licenses > /dev/null 2>&1 || true
+  - sdkmanager "platforms;android-37" > /dev/null 2>&1 || true
+install:
+  - ./gradlew publishToMavenLocal

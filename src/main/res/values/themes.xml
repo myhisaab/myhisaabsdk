@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Minimal NoActionBar window theme for MyHisaabActivity. Uses a platform
+         parent so the SDK pulls in no extra theming dependency. The in-Compose
+         look comes from MaterialTheme inside MyHisaabActivity. -->
+    <style name="Theme.MyHisaabSdk" parent="@android:style/Theme.Material.Light.NoActionBar" />
+</resources>
