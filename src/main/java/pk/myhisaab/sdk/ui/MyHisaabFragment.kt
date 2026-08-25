@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import pk.myhisaab.sdk.model.MyHisaabEnvironment
+import pk.myhisaab.sdk.ui.MyHisaabFragment.Companion.newInstance
 
 /**
  * Embeddable [Fragment] host for [MyHisaabView] — for View-based apps that place
@@ -25,7 +26,7 @@ class MyHisaabFragment : Fragment() {
     ): View = ComposeView(requireContext()).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
 
-        val clientId = arguments?.getString(ARG_CLIENT_ID).orEmpty()
+        val customerId = arguments?.getString(ARG_CUSTOMER_ID).orEmpty()
         val environment = arguments?.getString(ARG_ENVIRONMENT)
             ?.let { runCatching { MyHisaabEnvironment.valueOf(it) }.getOrNull() }
             ?: MyHisaabEnvironment.PRODUCTION
@@ -34,7 +35,7 @@ class MyHisaabFragment : Fragment() {
         setContent {
             MaterialTheme {
                 MyHisaabView(
-                    clientId = clientId,
+                    customerId = customerId,
                     environment = environment,
                     fcmToken = fcmToken,
                     modifier = Modifier.fillMaxSize(),
@@ -44,17 +45,17 @@ class MyHisaabFragment : Fragment() {
     }
 
     companion object {
-        private const val ARG_CLIENT_ID = "clientId"
+        private const val ARG_CUSTOMER_ID = "customerId"
         private const val ARG_ENVIRONMENT = "environment"
         private const val ARG_FCM_TOKEN = "fcmToken"
 
         fun newInstance(
-            clientId: String,
+            customerId: String,
             environment: MyHisaabEnvironment = MyHisaabEnvironment.PRODUCTION,
             fcmToken: String? = null,
         ): MyHisaabFragment = MyHisaabFragment().apply {
             arguments = Bundle().apply {
-                putString(ARG_CLIENT_ID, clientId)
+                putString(ARG_CUSTOMER_ID, customerId)
                 putString(ARG_ENVIRONMENT, environment.name)
                 fcmToken?.let { putString(ARG_FCM_TOKEN, it) }
             }

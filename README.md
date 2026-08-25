@@ -6,10 +6,14 @@ camera & gallery uploads natively, and forwards push tokens to the web layer —
 mirroring the MyHisaab iOS SDK so one web integration serves both platforms.
 
 ```kotlin
-MyHisaabView(clientId = "your-client-id")
+MyHisaabView(customerId = "your-customer-id")
 ```
 
-loads `https://app.myhisaab.pk/login?clientId=<clientId>`.
+loads `https://simosa.myhisaab.pk/login?customerId=<customerId>`.
+
+The web app captures `customerId`, retains it through login and onboarding, and
+sends it to the backend after OTP verification — the SDK's only job is to put it
+in the URL.
 
 ---
 
@@ -78,7 +82,7 @@ import pk.myhisaab.sdk.ui.MyHisaabView
 @Composable
 fun MyHisaabScreen() {
     MyHisaabView(
-        clientId = "your-client-id",
+        customerId = "your-customer-id",
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -97,7 +101,7 @@ reload and token rotation** (navigations wipe `window`-scoped values):
 
 ```kotlin
 MyHisaabView(
-    clientId = "your-client-id",
+    customerId = "your-customer-id",
     fcmToken = fcmToken,   // String? — pass null until you have one
     modifier = Modifier.fillMaxSize(),
 )
@@ -112,7 +116,7 @@ All optional. The most useful is `onPageFinished`, for detecting login completio
 
 ```kotlin
 MyHisaabView(
-    clientId = "your-client-id",
+    customerId = "your-customer-id",
     onPageStarted = { url -> /* a page began loading */ },
     onPageFinished = { url ->
         if (!url.contains("/login")) closeMyHisaab()   // logged in
@@ -135,7 +139,7 @@ arguments) — embed `MyHisaabView` directly if you need those hooks.
 ```kotlin
 import pk.myhisaab.sdk.ui.MyHisaabActivity
 
-MyHisaabActivity.launch(context = this, clientId = "your-client-id")
+MyHisaabActivity.launch(context = this, customerId = "your-customer-id")
 ```
 
 **Embed as a Fragment:**
@@ -143,7 +147,7 @@ MyHisaabActivity.launch(context = this, clientId = "your-client-id")
 ```kotlin
 import pk.myhisaab.sdk.ui.MyHisaabFragment
 
-val fragment = MyHisaabFragment.newInstance(clientId = "your-client-id")
+val fragment = MyHisaabFragment.newInstance(customerId = "your-customer-id")
 
 supportFragmentManager.beginTransaction()
     .replace(R.id.fragment_container, fragment)
@@ -157,7 +161,7 @@ supportFragmentManager.beginTransaction()
 ```kotlin
 @Composable
 fun MyHisaabView(
-    clientId: String,
+    customerId: String,
     modifier: Modifier = Modifier,
     environment: MyHisaabEnvironment = MyHisaabEnvironment.PRODUCTION,
     fcmToken: String? = null,
@@ -167,15 +171,15 @@ fun MyHisaabView(
 )
 ```
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `clientId` | `String` | — (required) | Tenant/client id appended as the `clientId` query parameter. |
-| `modifier` | `Modifier` | `Modifier` | Standard Compose modifier; usually `Modifier.fillMaxSize()`. |
-| `environment` | `MyHisaabEnvironment` | `PRODUCTION` | Which MyHisaab host to load. |
-| `fcmToken` | `String?` | `null` | FCM registration token to hand to the web app; update to re-inject. |
-| `onPageStarted` | `((String) -> Unit)?` | `null` | Called (main thread) when a page begins loading, with its URL. |
-| `onPageFinished` | `((String) -> Unit)?` | `null` | Called (main thread) when a page finishes loading, with its URL. |
-| `onError` | `((String) -> Unit)?` | `null` | Called when the main frame fails to load. The retry overlay still shows. |
+| Parameter        | Type                  | Default      | Description                                                              |
+|------------------|-----------------------|--------------|--------------------------------------------------------------------------|
+| `customerId`     | `String`              | — (required) | Customer id appended as the `customerId` query parameter.                |
+| `modifier`       | `Modifier`            | `Modifier`   | Standard Compose modifier; usually `Modifier.fillMaxSize()`.             |
+| `environment`    | `MyHisaabEnvironment` | `PRODUCTION` | Which MyHisaab host to load.                                             |
+| `fcmToken`       | `String?`             | `null`       | FCM registration token to hand to the web app; update to re-inject.      |
+| `onPageStarted`  | `((String) -> Unit)?` | `null`       | Called (main thread) when a page begins loading, with its URL.           |
+| `onPageFinished` | `((String) -> Unit)?` | `null`       | Called (main thread) when a page finishes loading, with its URL.         |
+| `onError`        | `((String) -> Unit)?` | `null`       | Called when the main frame fails to load. The retry overlay still shows. |
 
 ---
 
@@ -236,7 +240,7 @@ window.addEventListener("myhisaab:fcm-token", (e) => {
 enum class MyHisaabEnvironment { PRODUCTION }
 ```
 
-Only `PRODUCTION` (`https://app.myhisaab.pk/login`) exists today. A `STAGING`
+Only `PRODUCTION` (`https://simosa.myhisaab.pk/login`) exists today. A `STAGING`
 entry can be added later without changing the public API.
 
 ---

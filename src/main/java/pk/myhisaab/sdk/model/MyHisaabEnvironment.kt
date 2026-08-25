@@ -8,5 +8,5 @@ package pk.myhisaab.sdk.model
  * change.
  */
 enum class MyHisaabEnvironment(val baseLoginUrl: String) {
-    PRODUCTION("https://app.myhisaab.pk/login"),
+    PRODUCTION("https://simosa.myhisaab.pk/login"),
 }

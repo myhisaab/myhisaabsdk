@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import pk.myhisaab.sdk.model.MyHisaabEnvironment
+import pk.myhisaab.sdk.ui.MyHisaabActivity.Companion.launch
 
 /**
  * Full-screen host Activity for [MyHisaabView] — the View-based entry point.
@@ -23,7 +24,7 @@ class MyHisaabActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val clientId = intent.getStringExtra(EXTRA_CLIENT_ID).orEmpty()
+        val customerId = intent.getStringExtra(EXTRA_CUSTOMER_ID).orEmpty()
         val environment = intent.getStringExtra(EXTRA_ENVIRONMENT)
             ?.let { runCatching { MyHisaabEnvironment.valueOf(it) }.getOrNull() }
             ?: MyHisaabEnvironment.PRODUCTION
@@ -37,7 +38,7 @@ class MyHisaabActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     MyHisaabView(
-                        clientId = clientId,
+                        customerId = customerId,
                         environment = environment,
                         fcmToken = fcmToken,
                         modifier = Modifier.fillMaxSize(),
@@ -48,7 +49,7 @@ class MyHisaabActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val EXTRA_CLIENT_ID = "pk.myhisaab.sdk.EXTRA_CLIENT_ID"
+        private const val EXTRA_CUSTOMER_ID = "pk.myhisaab.sdk.EXTRA_CUSTOMER_ID"
         private const val EXTRA_ENVIRONMENT = "pk.myhisaab.sdk.EXTRA_ENVIRONMENT"
         private const val EXTRA_FCM_TOKEN = "pk.myhisaab.sdk.EXTRA_FCM_TOKEN"
 
@@ -60,12 +61,12 @@ class MyHisaabActivity : ComponentActivity() {
          */
         fun launch(
             context: Context,
-            clientId: String,
+            customerId: String,
             environment: MyHisaabEnvironment = MyHisaabEnvironment.PRODUCTION,
             fcmToken: String? = null,
         ) {
             val intent = Intent(context, MyHisaabActivity::class.java).apply {
-                putExtra(EXTRA_CLIENT_ID, clientId)
+                putExtra(EXTRA_CUSTOMER_ID, customerId)
                 putExtra(EXTRA_ENVIRONMENT, environment.name)
                 fcmToken?.let { putExtra(EXTRA_FCM_TOKEN, it) }
             }

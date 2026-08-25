@@ -71,21 +71,21 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pk.myhisaab.sdk.R
 import pk.myhisaab.sdk.internal.camera.CameraOverlay
 import pk.myhisaab.sdk.internal.webview.FcmTokenScript
 import pk.myhisaab.sdk.internal.webview.MyHisaabUrls
 import pk.myhisaab.sdk.internal.webview.WebAppBridge
 import pk.myhisaab.sdk.model.MyHisaabEnvironment
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
  * Embeds the MyHisaab web app in a [WebView], loading
- * `https://app.myhisaab.pk/login?clientId=<clientId>`.
+ * `https://simosa.myhisaab.pk/login?customerId=<customerId>`.
  *
  * Self-contained: no Hilt, no Firebase. The host app owns push and simply passes
  * the latest [fcmToken] in — the SDK injects it into the page (and re-injects on
@@ -93,7 +93,7 @@ import java.io.File
  * permission prompts, HTML file inputs (native camera overlay or gallery), a JS
  * bridge to open the camera, and system back navigation.
  *
- * @param clientId tenant/client identifier appended as the `clientId` query param.
+ * @param customerId customer identifier appended as the `customerId` query param.
  * @param environment which MyHisaab host to load. Defaults to
  *   [MyHisaabEnvironment.PRODUCTION].
  * @param fcmToken optional FCM registration token to hand to the web app; pass
@@ -109,7 +109,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyHisaabView(
-    clientId: String,
+    customerId: String,
     modifier: Modifier = Modifier,
     environment: MyHisaabEnvironment = MyHisaabEnvironment.PRODUCTION,
     fcmToken: String? = null,
@@ -127,8 +127,8 @@ fun MyHisaabView(
     val currentOnPageFinished by rememberUpdatedState(onPageFinished)
     val currentOnError by rememberUpdatedState(onError)
 
-    val url: String = remember(environment, clientId) {
-        MyHisaabUrls.loginUrl(environment, clientId)
+    val url: String = remember(environment, customerId) {
+        MyHisaabUrls.loginUrl(environment, customerId)
     }
 
     // --- Internal WebView UI state (replaces the app's Hilt ViewModel) ---

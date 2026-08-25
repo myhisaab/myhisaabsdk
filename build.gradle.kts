@@ -29,6 +29,13 @@ android {
             withSourcesJar()
         }
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs Android resources/manifest available on the JVM.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 kotlin {
@@ -52,6 +59,12 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.fragment.ktx)
+
+    // Unit tests. Robolectric supplies a real android.net.Uri on the JVM so the
+    // URL-encoding logic is exercised for real (no emulator needed).
+    // If the runner ever complains about AGP/SDK support, bump this version.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }
 
 // --- JitPack publication -------------------------------------------------
