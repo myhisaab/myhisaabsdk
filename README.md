@@ -62,11 +62,11 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.github.myhisaab:myhisaabsdk:1.0.0")
+    implementation("com.github.myhisaab:myhisaabsdk:1.1.0")
 }
 ```
 
-Replace `1.0.0` with the released git tag. Publishing steps are in
+Replace `1.1.0` with the released git tag. Publishing steps are in
 [`JITPACK.md`](JITPACK.md).
 
 ---
@@ -202,6 +202,10 @@ your app's own push setup.
 > The SDK registers a `FileProvider` under `${applicationId}.myhisaab.fileprovider`
 > (a unique suffix) so it never clashes with a `FileProvider` your app defines.
 
+Report downloads need **no storage permission**: files are written to the app's
+private cache (`cacheDir/myhisaab/downloads`, cleared after a day) and offered
+through the share sheet, from which the user saves or sends them.
+
 ---
 
 ## Web-side integration contract
@@ -222,6 +226,32 @@ window.receiveCameraImage = function (dataUrl) {
 
 Standard `<input type="file" accept="image/*">` also works — it presents a native
 Camera / Gallery chooser.
+
+**Report downloads (PDF / CSV):**
+
+Hand the file to native and the SDK decodes it, saves it and opens the share
+sheet:
+
+```js
+// 1. What the web app calls (Android side of iOS's `downloadHandler` message):
+//    bare base64, file name and MIME type straight from the statement API.
+window.AndroidBridge.downloadFile(base64, 'statement_monthly.pdf', 'application/pdf');
+
+// 2. Also accepted, matching the MyHisaab Android app: a data URL plus an
+//    optional name (shareFile(dataUrl) works too). processDataUrl is the same.
+window.AndroidBridge.shareFile('data:text/csv;base64,ZGF0ZSxhbW91bnQ=', 'statement.csv');
+
+// 3. Fallbacks when no bridge method is used: a download link to a data: or
+//    blob: URL. Don't revoke a blob URL straight after click(): the SDK reads it
+//    a moment later.
+link.href = URL.createObjectURL(blob); link.download = 'statement.pdf'; link.click();
+```
+
+Only PDF and CSV are accepted; a PDF must really be one (`%PDF-` header). Empty or
+invalid data shows a "Couldn't save the file" message instead of a broken file.
+
+WebView doesn't pass a link's `download` name to the app, so files from option 3
+are saved as `statement_<timestamp>.pdf` / `.csv`. Options 1 and 2 keep the name.
 
 **FCM token:**
 
@@ -256,5 +286,10 @@ but if JitPack's image can't fetch that API level, lower `compileSdk` in
 
 **Camera returns nothing to the web app.** The web app must define
 `window.receiveCameraImage(dataUrl)` or use a standard `<input type="file">`.
+
+**A download shows "Couldn't save the file".** Check logcat for the
+`MyHisaabDownload` tag. Usual causes: the payload isn't PDF/CSV, bare base64 was
+sent with neither a PDF/CSV MIME type nor a `.pdf`/`.csv` file name, or a `blob:`
+URL was revoked before the SDK could read it.
 
 **Version bumps.** Keep `version` in `build.gradle.kts` equal to the git tag.

@@ -73,8 +73,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import pk.myhisaab.sdk.R
 import kotlinx.coroutines.launch
 import java.io.File
@@ -84,24 +82,32 @@ import kotlin.math.abs
  * In-app camera presented as a custom resizable bottom sheet over the current
  * page — an Android counterpart of the iOS `CameraViewController`. Opens at the
  * half detent; drag the grabber to resize; flick down / tap scrim / back to
- * dismiss. Implemented with `Animatable` + `draggable` so the shutter stays
- * pinned to the screen bottom at any detent.
+ * dismiss.
+ *
+ * Self-contained and defensive by design:
+ *  - **No ViewModel.** State lives in `remember`, so the overlay does NOT require
+ *    a `ViewModelStoreOwner` in the host's composition (a missing one would
+ *    otherwise crash the instant the camera opens).
+ *  - **CameraX is bound only after permission is granted, inside try/catch.** A
+ *    device or dependency failure surfaces as an error message and closes the
+ *    overlay instead of crashing the host Activity.
  *
  * UI-only and web-agnostic: the caller delivers [onImageCaptured]'s file to the
- * web layer; [onClose] fires when dismissed without a capture. Uses a plain
- * [CameraViewModel] via `viewModel()` — no Hilt.
+ * web layer; [onClose] fires when dismissed without a capture.
  */
 @Composable
 internal fun CameraOverlay(
     onImageCaptured: (File) -> Unit,
     onClose: () -> Unit,
-    viewModel: CameraViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    var isProcessing by remember { mutableStateOf(false) }
+    var useBackCamera by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     var hasCameraPermission by remember {
         mutableStateOf(context.hasPermission(Manifest.permission.CAMERA))
@@ -115,37 +121,73 @@ internal fun CameraOverlay(
         permissionDenied = !granted
     }
 
+    // Constructing the controller touches CameraX, which throws
+    // IllegalStateException if no camera backend (camera-camera2) is on the
+    // runtime classpath. Guard it so a mis-integrated host shows an error
+    // instead of crashing at the constructor.
     val controller = remember {
-        LifecycleCameraController(context).apply {
-            setEnabledUseCases(CameraController.IMAGE_CAPTURE)
-            cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+        runCatching {
+            LifecycleCameraController(context).apply {
+                setEnabledUseCases(CameraController.IMAGE_CAPTURE)
+            }
+        }.getOrNull()
+    }
+
+    LaunchedEffect(Unit) {
+        if (controller == null) {
+            errorMessage = context.getString(R.string.myhisaab_camera_unavailable)
         }
     }
-    DisposableEffect(lifecycleOwner) {
-        controller.bindToLifecycle(lifecycleOwner)
-        onDispose { controller.unbind() }
-    }
-    var isFirstLensEffect by remember { mutableStateOf(true) }
-    LaunchedEffect(uiState.useBackCamera) {
-        if (isFirstLensEffect) {
-            isFirstLensEffect = false
-        } else {
-            controller.cameraSelector =
-                if (uiState.useBackCamera) CameraSelector.DEFAULT_BACK_CAMERA
+
+    // Bind ONLY once permission is granted, and never let a CameraX failure crash
+    // the host — surface it and close. Re-runs on lens change to rebind.
+    LaunchedEffect(hasCameraPermission, useBackCamera) {
+        val c = controller ?: return@LaunchedEffect
+        if (!hasCameraPermission) return@LaunchedEffect
+        try {
+            c.cameraSelector =
+                if (useBackCamera) CameraSelector.DEFAULT_BACK_CAMERA
                 else CameraSelector.DEFAULT_FRONT_CAMERA
+            c.bindToLifecycle(lifecycleOwner)
+        } catch (t: Throwable) {
+            errorMessage = context.getString(R.string.myhisaab_camera_capture_failed)
         }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { runCatching { controller?.unbind() } }
     }
 
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is CameraEvent.ImageReady -> onImageCaptured(event.file)
-                is CameraEvent.Error -> snackbarHostState.showSnackbar(event.message)
-            }
+    LaunchedEffect(errorMessage) {
+        val message = errorMessage
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            errorMessage = null
+        }
+    }
+
+    val toggleLens: () -> Unit = { if (!isProcessing) useBackCamera = !useBackCamera }
+
+    val onShutter: () -> Unit = {
+        val c = controller
+        if (!isProcessing && c != null) {
+            capturePhoto(
+                context = context,
+                controller = c,
+                onStart = { isProcessing = true },
+                onSuccess = { file ->
+                    isProcessing = false
+                    onImageCaptured(file)
+                },
+                onFailure = { msg ->
+                    isProcessing = false
+                    errorMessage = msg
+                },
+            )
         }
     }
 
@@ -171,7 +213,7 @@ internal fun CameraOverlay(
             }
         }
 
-        BackHandler(enabled = !uiState.isProcessing) { dismiss() }
+        BackHandler(enabled = !isProcessing) { dismiss() }
 
         val dragState = rememberDraggableState { delta ->
             scope.launch {
@@ -181,7 +223,7 @@ internal fun CameraOverlay(
         val dragHandleModifier = Modifier.draggable(
             state = dragState,
             orientation = Orientation.Vertical,
-            enabled = !uiState.isProcessing,
+            enabled = !isProcessing,
             onDragStopped = { velocity ->
                 val target = pickDetent(sheetHeight.value, velocity, hiddenHeightPx, halfHeightPx, fullHeightPx)
                 sheetHeight.animateTo(target, tween(durationMillis = 250))
@@ -198,7 +240,7 @@ internal fun CameraOverlay(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    enabled = !uiState.isProcessing,
+                    enabled = !isProcessing,
                     onClick = dismiss,
                 ),
         )
@@ -216,7 +258,12 @@ internal fun CameraOverlay(
                     onClick = {},
                 ),
         ) {
-            if (hasCameraPermission) {
+            if (controller == null) {
+                CameraUnavailable(
+                    onCancel = dismiss,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            } else if (hasCameraPermission) {
                 CameraPreview(
                     controller = controller,
                     modifier = Modifier
@@ -233,8 +280,8 @@ internal fun CameraOverlay(
                     contentAlignment = Alignment.Center,
                 ) {
                     ShutterButton(
-                        isProcessing = uiState.isProcessing,
-                        onClick = { capturePhoto(context, controller, viewModel) },
+                        isProcessing = isProcessing,
+                        onClick = onShutter,
                     )
                 }
             } else {
@@ -249,10 +296,10 @@ internal fun CameraOverlay(
 
             SheetTopBar(
                 dragHandleModifier = dragHandleModifier,
-                showControls = hasCameraPermission,
-                controlsEnabled = !uiState.isProcessing,
+                showControls = hasCameraPermission && controller != null,
+                controlsEnabled = !isProcessing,
                 onClose = dismiss,
-                onToggleLens = viewModel::toggleLens,
+                onToggleLens = toggleLens,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
@@ -416,6 +463,31 @@ private fun CameraPermissionRequest(
     }
 }
 
+@Composable
+private fun CameraUnavailable(
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .padding(top = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.myhisaab_camera_unavailable),
+            color = Color.White,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(16.dp))
+        TextButton(onClick = onCancel) {
+            Text(text = stringResource(R.string.myhisaab_cancel), color = Color.White)
+        }
+    }
+}
+
 /* --------------------------- logic / helpers --------------------------- */
 
 /**
@@ -438,30 +510,49 @@ internal fun pickDetent(
     }
 }
 
+/**
+ * Captures a still. Every failure path — temp-file creation, the CameraX call
+ * itself, and the async save callback — routes to [onFailure] so nothing escapes
+ * as an uncaught exception.
+ */
 private fun capturePhoto(
     context: Context,
     controller: LifecycleCameraController,
-    viewModel: CameraViewModel,
+    onStart: () -> Unit,
+    onSuccess: (File) -> Unit,
+    onFailure: (String) -> Unit,
 ) {
-    val photoFile = createTempImageFile(context)
+    val fallback = context.getString(R.string.myhisaab_camera_capture_failed)
+
+    val photoFile = try {
+        createTempImageFile(context)
+    } catch (t: Throwable) {
+        onFailure(fallback)
+        return
+    }
+
+    onStart()
     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
-    controller.takePicture(
-        outputOptions,
-        ContextCompat.getMainExecutor(context),
-        object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                viewModel.onImageCaptured(photoFile)
-            }
+    try {
+        controller.takePicture(
+            outputOptions,
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageSavedCallback {
+                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                    onSuccess(photoFile)
+                }
 
-            override fun onError(exception: ImageCaptureException) {
-                photoFile.delete()
-                viewModel.onCaptureFailed(
-                    exception.message ?: context.getString(R.string.myhisaab_camera_capture_failed),
-                )
-            }
-        },
-    )
+                override fun onError(exception: ImageCaptureException) {
+                    runCatching { photoFile.delete() }
+                    onFailure(exception.message ?: fallback)
+                }
+            },
+        )
+    } catch (t: Throwable) {
+        runCatching { photoFile.delete() }
+        onFailure(t.message ?: fallback)
+    }
 }
 
 /** Temp file under the app's external cache (matches `myhisaab_file_paths.xml`). */

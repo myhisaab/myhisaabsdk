@@ -37,7 +37,7 @@ git push -u origin main
 
 ## 3. Tag the release
 
-Keep the tag equal to `version` in `build.gradle.kts` (currently `1.0.0`).
+Keep the tag equal to `version` in `build.gradle.kts` (currently `1.1.0`).
 
 ```
 git tag 1.0.0

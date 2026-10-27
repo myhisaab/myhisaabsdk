@@ -77,6 +77,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pk.myhisaab.sdk.R
 import pk.myhisaab.sdk.internal.camera.CameraOverlay
+import pk.myhisaab.sdk.internal.download.WebDownloadHandler
 import pk.myhisaab.sdk.internal.webview.FcmTokenScript
 import pk.myhisaab.sdk.internal.webview.MyHisaabUrls
 import pk.myhisaab.sdk.internal.webview.WebAppBridge
@@ -91,7 +92,8 @@ import java.io.File
  * the latest [fcmToken] in — the SDK injects it into the page (and re-injects on
  * reloads / token rotation). Handles edge-to-edge rendering, WebView camera/mic
  * permission prompts, HTML file inputs (native camera overlay or gallery), a JS
- * bridge to open the camera, and system back navigation.
+ * bridge to open the camera, PDF/CSV report downloads (offered in the share
+ * sheet), and system back navigation.
  *
  * @param customerId customer identifier appended as the `customerId` query param.
  * @param environment which MyHisaab host to load. Defaults to
@@ -120,6 +122,7 @@ fun MyHisaabView(
     val context: Context = LocalContext.current
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
     val scope: CoroutineScope = rememberCoroutineScope()
+    val downloadHandler: WebDownloadHandler = remember(context, scope) { WebDownloadHandler(context, scope) }
 
     // Keep the WebView's long-lived clients pointed at the latest callback lambdas
     // without recreating the WebView when a caller passes new lambda instances.
@@ -294,8 +297,15 @@ fun MyHisaabView(
                                 }
                             }
 
+                            setDownloadListener { downloadUrl, _, contentDisposition, mimeType, _ ->
+                                downloadHandler.onDownloadStart(this, downloadUrl, contentDisposition, mimeType)
+                            }
+
                             addJavascriptInterface(
-                                WebAppBridge(onOpenCamera = { showCameraOverlay = true }),
+                                WebAppBridge(
+                                    onOpenCamera = { showCameraOverlay = true },
+                                    onFileReceived = downloadHandler::onFileReceived,
+                                ),
                                 WebAppBridge.NAME,
                             )
 

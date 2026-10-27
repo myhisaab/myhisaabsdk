@@ -2,4 +2,6 @@
 <paths>
     <!-- Captured photos are written to externalCacheDir/Images (see CameraOverlay). -->
     <external-cache-path name="myhisaab_images" path="Images/" />
+    <!-- PDF/CSV report downloads are written to cacheDir/myhisaab/downloads (see DownloadStore). -->
+    <cache-path name="myhisaab_downloads" path="myhisaab/downloads/" />
 </paths>

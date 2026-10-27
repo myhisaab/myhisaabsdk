@@ -8,4 +8,7 @@
     <string name="myhisaab_open_settings">Open settings</string>
     <string name="myhisaab_cancel">Cancel</string>
     <string name="myhisaab_camera_capture_failed">Could not capture photo. Please try again.</string>
+    <string name="myhisaab_camera_unavailable">Camera is currently unavailable.</string>
+    <string name="myhisaab_download_failed">Couldn\'t save the file. Please try again.</string>
+    <string name="myhisaab_share_document">Share document</string>
 </resources>

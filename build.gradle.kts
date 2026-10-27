@@ -63,8 +63,8 @@ dependencies {
     // Unit tests. Robolectric supplies a real android.net.Uri on the JVM so the
     // URL-encoding logic is exercised for real (no emulator needed).
     // If the runner ever complains about AGP/SDK support, bump this version.
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
 }
 
 // --- JitPack publication -------------------------------------------------
@@ -76,7 +76,7 @@ publishing {
         register<MavenPublication>("release") {
             groupId = "com.github.myhisaab"
             artifactId = "myhisaabsdk"
-            version = "1.0.0"
+            version = "1.1.0"
             afterEvaluate {
                 from(components["release"])
             }
